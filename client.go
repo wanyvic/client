@@ -190,6 +190,7 @@ func (c *client) readHandle(wg *sync.WaitGroup) {
 	// 	logrus.Error(err)
 	// 	return
 	// }
+	once := true
 	for scanner.Scan() {
 		str := scanner.Text()
 		logrus.Debug("readbuf: ", str)
@@ -206,7 +207,10 @@ func (c *client) readHandle(wg *sync.WaitGroup) {
 		} else if strings.Contains(str, "mining.notify") {
 			arr := gjson.Get(str, "params").Array()
 			c.jobID = arr[0].String()
-			c.notify <- true
+			if once {
+				c.notify <- true
+				once = false
+			}
 		}
 		// err := c.conn.SetReadDeadline(time.Now().Add(time.Second * 30))
 		// if err != nil {
