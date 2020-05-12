@@ -63,7 +63,8 @@ func main() {
 	var timeOver time.Duration
 	var timeUsed time.Duration
 	var sum int
-	time.AfterFunc(time.Duration(*timeDuration)*time.Second, func() {
+
+	funct := func() {
 		timeUsed = time.Now().Sub(timeStarted)
 		sum = 0
 		for _, c := range clientList {
@@ -73,16 +74,23 @@ func main() {
 			timeOver = timeUsed
 		}
 		logrus.Infof("timeused: %s, total: %d, connected: %d\n\n", timeUsed, *clientCount, sum)
-	})
+	}
+	timer := time.NewTicker(time.Duration(*timeDuration) * time.Second)
 	c := make(chan os.Signal, 0)
 	signal.Notify(c, syscall.SIGHUP, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGUSR1, syscall.SIGUSR2)
-	<-c
-	for _, c := range clientList {
-		c.Close()
-	}
-	logrus.Infof("run time duration: %s, total: %d, connected: %d, time all connected: %s\n", timeUsed, *clientCount, sum, timeOver)
 
-	<-c
+	for {
+		select {
+		case <-timer.C:
+			funct()
+		case <-c:
+			for _, c := range clientList {
+				c.Close()
+			}
+			logrus.Infof("run time duration: %s, total: %d, connected: %d, time all connected: %s\n", timeUsed, *clientCount, sum, timeOver)
+			return
+		}
+	}
 }
 func NewClient(addr string, userName string, index int) *client {
 	return &client{
@@ -169,7 +177,7 @@ func (c *client) writeHandle(wg *sync.WaitGroup) {
 		}
 		time.Sleep(15 * time.Second)
 	}
-	logrus.Info("write handle close ", c.index)
+	logrus.Debug("write handle close ", c.index)
 }
 func (c *client) readHandle(wg *sync.WaitGroup) {
 	defer wg.Done()
@@ -202,7 +210,7 @@ func (c *client) readHandle(wg *sync.WaitGroup) {
 		// 	break
 		// }
 	}
-	logrus.Info("read handle close ", c.index)
+	logrus.Debug("read handle close ", c.index)
 }
 
 func (c *client) Close() {
