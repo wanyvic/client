@@ -22,6 +22,7 @@ type client struct {
 	index           int
 	conn            net.Conn
 	auth            chan bool
+	notify          chan bool
 	jobID           string
 	extranonce2size int
 	sessionID       string
@@ -98,6 +99,7 @@ func NewClient(addr string, userName string, index int) *client {
 		userName: userName,
 		index:    index,
 		auth:     make(chan bool),
+		notify:   make(chan bool),
 	}
 }
 func (c *client) Run() {
@@ -155,6 +157,7 @@ func (c *client) writeHandle(wg *sync.WaitGroup) {
 		logrus.Error(err, c.index)
 		return
 	}
+	<-c.notify
 	extranonce2 := ""
 	for {
 		if c.extranonce2size == 4 {
@@ -199,10 +202,11 @@ func (c *client) readHandle(wg *sync.WaitGroup) {
 			arr := gjson.Get(str, "result").Array()
 			c.sessionID = arr[len(arr)-2].String()
 			c.extranonce2size = int(arr[len(arr)-1].Int())
+			<-c.auth
 		} else if strings.Contains(str, "mining.notify") {
 			arr := gjson.Get(str, "params").Array()
 			c.jobID = arr[0].String()
-			c.auth <- true
+			c.notify <- true
 		}
 		// err := c.conn.SetReadDeadline(time.Now().Add(time.Second * 30))
 		// if err != nil {
