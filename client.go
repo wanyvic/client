@@ -202,7 +202,7 @@ func (c *client) readHandle(wg *sync.WaitGroup) {
 			arr := gjson.Get(str, "result").Array()
 			c.sessionID = arr[len(arr)-2].String()
 			c.extranonce2size = int(arr[len(arr)-1].Int())
-			<-c.auth
+			c.auth <- true
 		} else if strings.Contains(str, "mining.notify") {
 			arr := gjson.Get(str, "params").Array()
 			c.jobID = arr[0].String()
